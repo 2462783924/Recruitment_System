@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>updateJob</title>
+</head>
+<body>
+<script>    <!--判断用户是否登录-->
+var login = JSON.parse(localStorage.getItem("login"))
+var user = JSON.parse(localStorage.getItem("user"))
+if (!login) window.location.href = "../head/login.html";
+// 获取 URL 参数
+const params = new URLSearchParams(window.location.search);
+// 获取 regist 参数的值
+var jobID = params.get('id');
+</script>
+
+<script src="../../js/vue.js"></script>
+<script src="../../element-ui/lib/index.js"></script>
+<link rel="stylesheet" href="../../element-ui/lib/theme-chalk/index.css">
+<script src="../../js/axios.min.js"></script>
+<script src="http://libs.baidu.com/jquery/1.9.0/jquery.js"></script>
+
+<div id="update" style="width:500px">
+
+    <br>
+    <el-page-header @back="goBack" content="职位信息更新">
+    </el-page-header>
+    <br>
+    <hr style="border: none; border-top: 1px solid #ccc; margin: 10px 0; width: 100%">
+    <br>
+
+    <el-form :model="insertForm" :rules="rules" ref="insertForm" label-width="100px" class="demo-insertForm">
+
+        <el-form-item label="职位id" prop="id" style="width: 320px" v-if="false">
+            <el-input v-model="insertForm.id"></el-input>
+        </el-form-item>
+
+        <el-form-item label="所属公司注册码" prop="company" style="width: 320px" v-if="false">
+            <el-input v-model="insertForm.company"></el-input>
+        </el-form-item>
+
+        <el-form-item label="职位名称" prop="name" style="width: 320px">
+            <el-input v-model="insertForm.name" placeholder="请输入职位名称"></el-input>
+        </el-form-item>
+
+        <el-form-item label="薪资" prop="salary" style="width: 320px">
+            <el-input v-model="insertForm.salary" placeholder="请输入薪资"></el-input>
+        </el-form-item>
+
+        <el-form-item label="省份" prop="province" style="width: 320px">
+            <el-input v-model="insertForm.province" placeholder="请输入工作地所属省份"></el-input>
+        </el-form-item>
+
+        <el-form-item label="直辖市" prop="city" style="width: 320px">
+            <el-input v-model="insertForm.city" placeholder="请输入工作地所属直辖市"></el-input>
+        </el-form-item>
+
+        <el-form-item label="地区" prop="area" style="width: 320px">
+            <el-input v-model="insertForm.area" placeholder="请输入工作地所属地区"></el-input>
+        </el-form-item>
+
+        <el-form-item label="职位描述" prop="description" style="width: 320px">
+            <el-input type="textarea" v-model="insertForm.description" placeholder="请输入职位描述"></el-input>
+        </el-form-item>
+
+        <el-form-item>
+            <el-button type="primary" @click="submitForm">保存</el-button>
+            <el-button @click="clearForm('insertForm')">清空</el-button>
+        </el-form-item>
+    </el-form>
+</div>
+<script>
+    new Vue({
+        el: "#update",
+        data() {
+            return {
+                insertForm: {
+                    id: '',
+                    company: '',
+                    name: '',
+                    salary: '',
+                    province: '',
+                    city: '',
+                    area: '',
+                    description: '',
+                },
+                rules: {
+                    name: [
+                        {required: true, message: '请输入职位名称', trigger: 'blur'},
+                    ],
+                    salary: [
+                        {required: true, message: '请输入薪资', trigger: 'blur'},
+                    ],
+                    province: [
+                        {required: true, message: '请输入工作地省份', trigger: 'blur'},
+                    ],
+                    city: [
+                        {required: true, message: '请输入工作地城市', trigger: 'blur'},
+                    ],
+                    area: [
+                        {required: true, message: '请输入工作地地区', trigger: 'blur'},
+                    ],
+                }
+            };
+        },
+        mounted: function () {
+            var _this = this
+            $.ajax({
+                url: "http://localhost:8080/job/getJobById",
+                type: "POST",
+                data: {id: jobID},
+                success: function (result) {
+                    if (result.code == '1') {
+                        _this.insertForm=result.data
+                        _this.$message.success("原数据已自动填充")
+                    } else {
+                        _this.$message.error(result.msg)
+                    }
+                }, error: function () { // 服务器出错
+                    _this.$message.info("服务器繁忙，请稍后再试")
+                }
+            })
+        },
+        methods: {
+            submitForm() {
+                var _this = this;
+                this.$refs.insertForm.validate(valid => {
+                    //表单验证失败
+                    if (!valid) {
+                        return false;
+                    }
+                    //表单验证通过
+                    $.ajax({
+                        url: "http://localhost:8080/job/updateJobById",
+                        type: "POST",
+                        data: JSON.stringify(_this.insertForm),
+                        contentType: "application/json;charsetset=UTF-8",
+                        dataType: "json",
+                        xhrFields: {
+                            withCredentials: true
+                        },
+                        success: function (result) {
+                            if (result.code == '1') {
+                                alert(result.data)
+                                _this.goBack()
+                            } else {
+                                _this.$message.error(result.msg)
+                            }
+                        }, error: function () { // 服务器出错
+                            _this.$message.info("服务器繁忙，请稍后再试")
+                        }
+                    })
+                });
+            },
+            //  清空表单
+            clearForm() {
+                this.$refs.insertForm.resetFields(); //  清空表单
+            },
+            //  点击返回按钮
+            goBack() {
+                window.location.href = "manageCompany.html?regist="+this.insertForm.company
+            },
+        }
+    })
+</script>
+</body>
+</html>

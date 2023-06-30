@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<head>
+    <meta charset="UTF-8">
+    <title>人才招聘管理</title>
+    <link rel="icon" href="../../img/logo.png" sizes="16x16">
+</head>
+<body>
+
+<script src="../../js/vue.js"></script>
+<script src="../../element-ui/lib/index.js"></script>
+<link rel="stylesheet" href="../../element-ui/lib/theme-chalk/index.css">
+<link rel="stylesheet" type="text/css" href="../../css/container.css">
+<script src="../../js/axios.min.js"></script>
+<script src="http://libs.baidu.com/jquery/1.9.0/jquery.js"></script>
+
+<script>    <!--判断用户是否登录-->
+var login = JSON.parse(localStorage.getItem("login"))
+if (!login) window.location.href = "../head/login.html";
+</script>
+
+<div id="att" style="position:absolute;top:0;right:0;bottom:0;left:0;">
+
+    <!--左侧-->
+    <el-container style="height: 100%; border: 1px solid #eee">
+        <el-aside width="200px" style="background-color: rgb(238, 241, 246)">
+
+            <el-menu :default-openeds="['1']">
+                <h3 align="center" style="font-weight:normal;"><i class="el-icon-s-operation"></i>&nbsp;&nbsp;功能列表</h3>
+
+                <el-submenu index="1">
+                    <template slot="title"><i class="el-icon-reading"></i>寻找机会</template>
+                    <el-menu-item-group>
+                        <el-menu-item index="1-1" @click="clickGetJob">·&nbsp;招聘岗位</el-menu-item>
+                        <el-menu-item index="1-2" @click="clickDeliver">·&nbsp;已投简历</el-menu-item>
+                    </el-menu-item-group>
+                </el-submenu>
+                </el-submenu>
+
+                <el-submenu index="2">
+                    <template slot="title"><i class="el-icon-monitor"></i>公司管理</template>
+                    <el-menu-item-group>
+                        <el-menu-item index="2-1" @click="clickCompany">·&nbsp;我的公司</el-menu-item>
+                    </el-menu-item-group>
+                </el-submenu>
+
+                <el-submenu index="3">
+                    <template slot="title"><i class="el-icon-user"></i>用户管理</template>
+                    <el-menu-item-group>
+                        <el-menu-item index="3-1" @click="clickPersonal">·&nbsp;个人信息</el-menu-item>
+                        <el-menu-item index="3-2" @click="clickAnno">·&nbsp;网站公告</el-menu-item>
+                    </el-menu-item-group>
+                </el-submenu>
+
+            </el-menu>
+        </el-aside>
+
+        <!--顶部-->
+        <el-container>
+            <el-header style="text-align: right; font-size: 12px">
+                <span id="loadname"><script>document.getElementById("loadname").innerText = "欢迎登录：" + login.username;</script></span>
+                <el-tooltip style="margin: 4px;" class="item" effect="dark" content="退出登录" placement="bottom">
+                    <i class="el-icon-switch-button" style="margin-right: 15px" @click="clickClose"></i>
+                </el-tooltip>
+            </el-header>
+
+            <!--主体-->
+            <!--使用iframe标签进行局部页面跳转，在iframe内构建el-main主体部分（避免了使用路由跳转）-->
+            <iframe id="iframe_src" src="../job/getJob.html" frameborder="0" height="100%" width="100%"></iframe>
+
+        </el-container>
+    </el-container>
+</div>
+
+<script type="module">
+    new Vue({
+        el: "#att",
+        created: function () {
+            var _this = this
+            this.$message.success("欢迎登录")
+            $.ajax({
+                url: "http://localhost:8080/user/getUserByUsername",
+                type: "POST",
+                data: {username: login.username},
+                success: function (data) {
+                    var json = eval(data) // 获取后端返回的json数据
+                    var Code = json.code  // 获取Result的code
+                    if (Code == '1') {
+                        localStorage.setItem('user',JSON.stringify(data.data))
+                    } else {
+                        _this.$message.error(json.msg)
+                    }
+                }, error: function () { // 服务器出错
+                    _this.$message.info("服务器繁忙，请稍后再试")
+                }
+            })
+        },
+        methods: {
+            // 点击退出按钮返回登录页面
+            clickClose() {
+                var vm = this;
+                $.ajax({
+                    url: "http://localhost:8080/login/logout",
+                    type: "POST",
+                    xhrFields: {
+                        withCredentials: true
+                    },
+                    success: function (data) {
+                        localStorage.removeItem('login')
+                        localStorage.removeItem('user')
+                        window.location.href = '../head/login.html'
+                    }, error: function () { // 服务器出错
+                        vm.$message.error("服务器出错，无法正常退出")
+                    }
+                })
+            },
+            // 点击不同的菜单功能，进行页面局部转跳
+            clickGetJob() {
+                document.getElementById("iframe_src").src = "../job/getJob.html"
+            },
+            clickPersonal() {
+                document.getElementById("iframe_src").src = "../personal/resume.html"
+            },
+            clickDeliver() {
+                document.getElementById("iframe_src").src = "../personal/deliver.html"
+            },
+            clickCompany() {
+                document.getElementById("iframe_src").src = "../company/company.html"
+            },
+            clickAnno(){
+                document.getElementById("iframe_src").src = "../personal/getAnno.html"
+            }
+        }
+    })
+</script>
+
+</body>
+</html>

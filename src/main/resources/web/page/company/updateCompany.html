@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>registCompany</title>
+</head>
+<body>
+<script>    <!--判断用户是否登录-->
+var login = JSON.parse(localStorage.getItem("login"))
+var user = JSON.parse(localStorage.getItem("user"))
+if (!login) window.location.href = "../head/login.html";
+// 获取 URL 参数
+const params = new URLSearchParams(window.location.search);
+// 获取 regist 参数的值
+var regist = params.get('regist');
+</script>
+
+<script src="../../js/vue.js"></script>
+<script src="../../element-ui/lib/index.js"></script>
+<link rel="stylesheet" href="../../element-ui/lib/theme-chalk/index.css">
+<script src="../../js/axios.min.js"></script>
+<script src="http://libs.baidu.com/jquery/1.9.0/jquery.js"></script>
+
+<div id="insert" style="width:500px">
+    <br>
+    <el-page-header @back="goBack" content="更新公司信息">
+    </el-page-header>
+    <br>
+    <hr style="border: none; border-top: 1px solid #ccc; margin: 10px 0; width: 100%">
+    <br>
+    <el-form :model="insertForm" :rules="rules" ref="insertForm" label-width="100px" class="demo-insertForm">
+        <el-form-item label="公司名称" prop="name" style="width: 320px">
+            <el-input v-model="insertForm.name" placeholder="请输入公司名"></el-input>
+        </el-form-item>
+
+        <el-form-item label="注册码" prop="regist" style="width: 320px">
+            <el-input v-model="insertForm.regist" placeholder="请输入公司注册码"></el-input>
+        </el-form-item>
+
+        <el-form-item label="注册用户" prop="username" style="width: 320px">
+            <el-input v-model="insertForm.username" placeholder="请输入用户"></el-input>
+        </el-form-item>
+
+        <el-form-item label="上传logo" prop="file">
+            <el-upload
+                    class="upload-demo"
+                    ref="upload"
+                    :action="insertForm.loadUrl"
+                    :limit="1"
+                    :on-exceed="handleExceed"
+                    :auto-upload="false"
+                    :on-change="fileChange"
+                    :on-remove="fileRemove"
+                    :file-list="fileList">
+                <el-button slot="trigger" size="small" type="info" plain>点击上传</el-button>
+            </el-upload>
+        </el-form-item>
+
+        <el-form-item>
+            <el-button type="primary" @click="submitForm">保存</el-button>
+            <el-button @click="clearForm('insertForm')">清空</el-button>
+        </el-form-item>
+    </el-form>
+</div>
+<script>
+    new Vue({
+        el: "#insert",
+        data() {
+            return {
+                insertForm: {
+                    username: '',
+                    name: '',
+                    regist: '',
+                    file: null,
+                    loadUrl: ''
+                },
+                rules: {
+                    name: [
+                        {required: true, message: '请输入公司名称', trigger: 'blur'},
+                    ],
+                    regist: [
+                        {required: true, message: '请输入注册码', trigger: 'blur'},
+                    ],
+                    username: [
+                        {required: true, message: '请输入注册人', trigger: 'blur'},
+                    ],
+                    file: [
+                        {required: true, message: '请上传公司logo', trigger: 'change'}
+                    ],
+                }
+            };
+        },
+        mounted: function () {
+            var _this = this
+            $.ajax({
+                url: "http://localhost:8080/company/getCompanyByRegist",
+                type: "POST",
+                data: {regist: regist},
+                success: function (result) {
+                    if (result.code == '1') {
+                        _this.insertForm=result.data
+                        _this.$message.success("原数据已自动填充")
+                    } else {
+                        _this.$message.error(result.msg)
+                    }
+                }, error: function () { // 服务器出错
+                    _this.$message.info("服务器繁忙，请稍后再试")
+                }
+            })
+        },
+        methods: {
+            submitForm() {
+                var _this = this;
+                this.$refs.insertForm.validate(valid => {
+                    //表单验证失败
+                    if (!valid) {
+                        return false;
+                    }
+                    //表单验证通过
+                    $.ajax({
+                        url: "http://localhost:8080/company/updateCompany",
+                        type: "POST",
+                        data: JSON.stringify(_this.insertForm),
+                        contentType: "application/json;charsetset=UTF-8",
+                        dataType: "json",
+                        xhrFields: {
+                            withCredentials: true
+                        },
+                        success: function (result) {
+                            if (result.code == '1') {
+                                alert(JSON.stringify(result.data))
+                                _this.goBack()
+                            } else {
+                                _this.$message.error(result.msg)
+                            }
+                        }, error: function () { // 服务器出错
+                            _this.$message.info("服务器繁忙，请稍后再试")
+                        }
+                    })
+                });
+
+            },
+            // 清空表单
+            clearForm() {
+                this.$refs.upload.clearFiles(); //  清空选择的文件
+                this.$refs.insertForm.resetFields(); //  清空表单
+            },
+            //  上传文件到服务器
+            submitUpload() {
+                this.$refs.upload.submit();
+            },
+            //  上传文件数提醒
+            handleExceed() {
+                this.$message.warning(`当前限制上传 1 个文件`);
+            },
+            fileChange(uploadFile, fileList) {
+                this.insertForm.file = uploadFile
+                if (fileList.length !== 0) {
+                    this.$refs.insertForm.validateField('file')
+                }
+            },
+            fileRemove(uploadFile, fileList) {
+                if (fileList.length === 0) {
+                    this.insertForm.file = null
+                    this.$refs.insertForm.validateField('file')
+                }
+            },
+            goBack() {
+                window.location.href = "manageCompany.html?regist="+regist;
+            }
+        }
+    })
+</script>
+</body>
+</html>

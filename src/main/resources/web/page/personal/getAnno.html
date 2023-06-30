@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>getAnno</title>
+
+    <script>    <!--判断用户是否登录-->
+    var login = JSON.parse(localStorage.getItem("login"))
+    var user = JSON.parse(localStorage.getItem("user"))
+    if (!login) window.location.href = "../head/login.html";
+    </script>
+
+    <style>
+        .el-select {
+            width: 130px;
+        }
+
+        .el-input {
+            width: 200px;
+        }
+
+        .input-with-select .el-input-group__prepend {
+            background-color: #fff;
+        }
+
+        .el-table__header-wrapper table,
+        .el-table__body-wrapper table {
+            border-collapse: separate;
+            border-spacing: 0;
+        }
+
+        .el-table__header-wrapper th,
+        .el-table__body-wrapper td {
+            border-right: 1px solid #ebeef5;
+        }
+    </style>
+
+</head>
+<body>
+
+<script src="../../js/vue.js"></script>
+<script src="../../element-ui/lib/index.js"></script>
+<link rel="stylesheet" href="../../element-ui/lib/theme-chalk/index.css">
+<link rel="stylesheet" type="text/css" href="../../css/container.css">
+<script src="../../js/axios.min.js"></script>
+<script src="http://libs.baidu.com/jquery/1.9.0/jquery.js"></script>
+
+
+<div id="anno">
+    <el-container style="height: 100%; border: 1px solid #eee">
+        <!--主体-->
+        <el-main>
+
+            <el-table :data="tableData" :show-header="status">
+                <el-table-column prop="bothside" label="发布者" width=200px">
+                </el-table-column>
+                <el-table-column prop="time" label="发布日期" width=200px">
+                </el-table-column>
+                <el-table-column prop="msg" label="内容">
+                </el-table-column>
+            </el-table>
+        </el-main>
+    </el-container>
+
+    <!--分页功能条-->
+    <el-pagination
+            background
+            style="text-align:center;"
+            @size-change="handleSizeChange"
+            @current-change="handleCurrentChange"
+            :current-page="page"
+            :page-sizes="[5,10,15]"
+            :page-size="pageSize"
+            layout="total, sizes, prev, pager, next, jumper"
+            :total="counts">
+    </el-pagination>
+</div>
+
+<script type="module">
+    new Vue({
+        el: "#anno",
+        data() {
+            return {
+                counts: [],
+                page: 1,
+                pageSize: 10,
+                tableData: [],
+            }
+        },
+        mounted: function () {
+            this.loadAnno()
+        },
+        methods: {
+            /**
+             * 载入数据
+             */
+            loadAnno() {
+                var _this = this
+                $.ajax({
+                    url: "http://localhost:8080/chat/getAnno",
+                    type: "POST",
+                    data: {
+                        start: _this.page,
+                        size: _this.pageSize,
+                    },
+                    success: function (result) {
+                        if (result.code == 1) {
+                            _this.tableData = result.data.map(item => {
+                                return {
+                                    bothside: item.bothside,
+                                    time: new Date(item.time).toLocaleString(),
+                                    msg: item.msg
+                                };
+                            });
+                            _this.counts = result.data[0].count || 0;
+                        } else {
+                            _this.$message.info(result.msg)
+                        }
+                    },
+                })
+            },
+            /**
+             * 分页条功能监听器
+             */
+            handleSizeChange(val) {
+                this.pageSize = val
+                this.loadAnno()
+            },
+            handleCurrentChange(val) {
+                this.page = val
+                this.loadAnno()
+            },
+        }
+    })
+</script>
+</body>
+</html>

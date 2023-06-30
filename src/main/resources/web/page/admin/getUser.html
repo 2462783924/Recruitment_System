@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>getUser</title>
+
+    <script>    <!--判断用户是否登录&是否为管理员-->
+    var login = JSON.parse(localStorage.getItem("login"))
+    if (!login) {
+        window.location.href = "../head/login.html"
+    } else if (login.role != "1") {
+        window.location.href = "../head/login.html"
+    }
+    </script>
+
+    <style>
+        .el-select {
+            width: 130px;
+        }
+
+        .el-input {
+            width: 200px;
+        }
+
+        .input-with-select .el-input-group__prepend {
+            background-color: #fff;
+        }
+    </style>
+
+</head>
+<body>
+
+<script src="../../js/vue.js"></script>
+<script src="../../element-ui/lib/index.js"></script>
+<link rel="stylesheet" href="../../element-ui/lib/theme-chalk/index.css">
+<link rel="stylesheet" type="text/css" href="../../css/container.css">
+<script src="../../js/axios.min.js"></script>
+<script src="http://libs.baidu.com/jquery/1.9.0/jquery.js"></script>
+
+
+<div id="user">
+    <el-container style="height: 100%; border: 1px solid #eee">
+        <!--主体-->
+        <el-main>
+
+            <div style="margin-top: 15px;">
+                <el-input placeholder="输入用户名" style="width: 500px" v-model="input_find" class="input-with-select">
+                </el-input>
+                <el-button type="primary" plain icon="el-icon-search" circle @click="selectUser"></el-button>
+            </div>
+
+            <el-table :data="tableData" :show-header="status">
+                <!-- 把id信息隐藏 -->
+                <el-table-column prop="id" label="ID" show-overflow-tooltip v-if="false">
+                </el-table-column>
+                <el-table-column prop="username" label="用户名">
+                </el-table-column>
+                <el-table-column prop="password" label="密码" show-password>
+                </el-table-column>
+                <el-table-column prop="role" label="角色" :formatter="judgerole">
+                </el-table-column>
+                <el-table-column prop="intime" label="最后登录时间">
+                    <template slot-scope="scope">
+                        {{ formatTime(scope.row.intime) }}
+                    </template>
+                </el-table-column>
+
+                <el-table-column prop="control" width="200px" label="操作" align="center">
+                    <template slot-scope="scope">
+                        <el-button type="warning" icon="el-icon-star-off" circle @click="changeRole(scope.row)"
+                                   v-if="scope.row.role == 0"></el-button>
+                        <el-button type="success" icon="el-icon-check" circle @click="changeRole(scope.row)"
+                                   v-if="scope.row.role == 1"></el-button>
+                        <el-button type="danger" icon="el-icon-delete" circle
+                                   @click="deleteUser(scope.row)"></el-button>
+                    </template>
+                </el-table-column>
+
+            </el-table>
+        </el-main>
+    </el-container>
+
+    <!--分页功能条-->
+    <el-pagination
+            background
+            style="text-align:center;"
+            @size-change="handleSizeChange"
+            @current-change="handleCurrentChange"
+            :current-page="page"
+            :page-sizes="[5,10,15]"
+            :page-size="pageSize"
+            layout="total, sizes, prev, pager, next, jumper"
+            :total="counts">
+    </el-pagination>
+</div>
+
+<script type="module">
+    new Vue({
+        el: "#user",
+        data() {
+            return {
+                input_find: '',
+                counts: [],
+                page: 1,
+                pageSize: 10,
+                tableData: [],
+            }
+        },
+        mounted: function () {
+            this.loadUser()
+        },
+        methods: {
+            /**
+             * 载入数据
+             */
+            loadUser() {
+                var _this = this
+                $.ajax({
+                    url: "http://localhost:8080/login/getAllLogins",
+                    type: "POST",
+                    data: {
+                        start: _this.page,
+                        size: _this.pageSize,
+                        username: _this.input_find
+                    },
+
+                    success: function (data) {
+                        var json = eval(data) // 获取后端返回的json数据
+                        var Code = json.code  // 获取Result的code
+                        if (Code == 1) {
+                            let jsondata = JSON.parse(JSON.stringify(json.data));
+                            var map = jsondata.records
+                            var count = jsondata.total
+
+                            _this.tableData = map || []
+                            _this.counts = count
+                        } else {
+                            _this.$message.info(json.msg)
+                        }
+                    },
+                })
+            },
+            // 搜索查询
+            selectUser() {
+                this.page = 1; // Reset page to 1
+                this.loadUser();
+            },
+            /**
+             * 分页条功能监听器
+             */
+            handleSizeChange(val) {
+                this.pageSize = val
+                this.loadUser()
+            },
+            handleCurrentChange(val) {
+                this.page = val
+                this.loadUser()
+            },
+            // 用户角色判断
+            judgerole(row) {
+                if (row.role == 0) {
+                    return '普通用户'
+                } else {
+                    return '管理员'
+                }
+            },
+            // 将时间戳转换为本地日期时间字符串
+            formatTime(timestamp) {
+                if (timestamp === null) {
+                    return ''; // 返回空白或其他自定义值
+                }
+                const date = new Date(timestamp);
+                return date.toLocaleString();
+            },
+            // 删除用户
+            deleteUser(row) {
+                var _this = this
+                this.$confirm('删除用户及其记录, 是否继续?', '提示', {
+                    confirmButtonText: '确定',
+                    cancelButtonText: '取消',
+                    type: 'info'
+                }).then(() => {
+                    $.ajax({
+                        url: "http://localhost:8080/login/deleteUser",
+                        type: "POST",
+                        data: {
+                            id: row.id,
+                            thisID: login.id,
+                        },
+                        success: function (result) {
+                            if (result.code == 1) {
+                                _this.$message.success(result.data)
+                                _this.loadUser()
+                            } else {
+                                _this.$message.warning(result.msg)
+                            }
+                        },
+                    })
+                }).catch(() => {
+                    _this.$message.info("已取消删除")
+                });
+            },
+            // 修改用户角色
+            changeRole(row) {
+                var _this = this
+                this.$confirm('更改用户角色, 是否继续?', '提示', {
+                    confirmButtonText: '确定',
+                    cancelButtonText: '取消',
+                    type: 'info'
+                }).then(() => {
+                    $.ajax({
+                        url: "http://localhost:8080/login/updateRole",
+                        type: "POST",
+                        data: {
+                            id: row.id,
+                            username: row.username,
+                            role: row.role,
+                            thisuser: login.username,
+                        },
+                        success: function (result) {
+                            if (result.code == 1) {
+                                _this.$message.success(result.data)
+                                _this.loadUser()
+                            } else {
+                                _this.$message.warning(result.msg)
+                            }
+                        },
+                    })
+                }).catch(() => {
+                    _this.$message.info("已取消修改")
+                });
+            }
+        }
+    })
+</script>
+</body>
+</html>
