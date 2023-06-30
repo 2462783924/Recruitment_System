@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>manageCompany</title>
+
+    <script>    <!--判断用户是否登录-->
+    var login = JSON.parse(localStorage.getItem("login"))
+    var user = JSON.parse(localStorage.getItem("user"))
+    if (!login) window.location.href = "../head/login.html";
+    // 获取 URL 参数
+    const params = new URLSearchParams(window.location.search);
+    // 获取 regist 参数的值
+    var regist = params.get('regist');
+    </script>
+
+    <style>
+        .el-select {
+            width: 130px;
+        }
+
+        .el-input {
+            width: 200px;
+        }
+
+        .input-with-select .el-input-group__prepend {
+            background-color: #fff;
+        }
+    </style>
+
+</head>
+<body>
+
+<script src="../../js/vue.js"></script>
+<script src="../../element-ui/lib/index.js"></script>
+<link rel="stylesheet" href="../../element-ui/lib/theme-chalk/index.css">
+<link rel="stylesheet" type="text/css" href="../../css/container.css">
+<script src="../../js/axios.min.js"></script>
+<script src="http://libs.baidu.com/jquery/1.9.0/jquery.js"></script>
+
+
+<div id="man">
+    <el-container style="height: 100%; border: 1px solid #eee">
+        <!--主体-->
+        <el-main>
+            <el-page-header @back="goBack" :content="pageHeaderContent">
+            </el-page-header>
+            <div style="margin-top: 15px;">
+                <el-input placeholder="输入搜索的职位名称" style="width: 500px" v-model="input_find" class="input-with-select">
+                </el-input>
+                <el-button slot="append" icon="el-icon-search" @click="selectJob"></el-button>
+                <el-button type="success" @click="issueJob">发布职位</el-button>
+                <el-button type="primary" @click="updateCompany">编辑信息</el-button>
+                <el-button type="danger" @click="deleteCompany">注销公司</el-button>
+            </div>
+
+            <el-table :data="tableData" :show-header="status">
+                // 把id信息隐藏
+                <el-table-column prop="id" label="id" show-overflow-tooltip v-if="false">
+                </el-table-column>
+                <el-table-column prop="name" label="职位">
+                </el-table-column>
+                <el-table-column prop="company" label="公司注册号" show-overflow-tooltip v-if="false">
+                </el-table-column>
+                <el-table-column prop="salary" label="薪资">
+                </el-table-column>
+                <el-table-column prop="address" label="地址">
+                </el-table-column>
+                <el-table-column prop="description" label="职位描述">
+                </el-table-column>
+                <el-table-column prop="control" width=200px" label="操作" align="center">
+                    <template slot-scope="scope">
+                        <el-button @click="chatToUser(scope.row)" type="info" icon="el-icon-message" circle></el-button>
+                        <el-button @click="updateJob(scope.row)" type="primary" icon="el-icon-edit" circle></el-button>
+                        <el-button @click="deleteDeliver(scope.row)" type="danger" icon="el-icon-delete" circle></el-button>
+                    </template>
+                </el-table-column>
+
+            </el-table>
+        </el-main>
+    </el-container>
+
+    <!--分页功能条-->
+    <el-pagination
+            background
+            style="text-align:center;"
+            @size-change="handleSizeChange"
+            @current-change="handleCurrentChange"
+            :current-page="page"
+            :page-sizes="[5,10,15]"
+            :page-size="pageSize"
+            layout="total, sizes, prev, pager, next, jumper"
+            :total="counts">
+    </el-pagination>
+</div>
+
+<script type="module">
+
+    new Vue({
+        el: "#man",
+        data() {
+            return {
+                pageHeaderContent:'',
+                input_find: '',
+                counts: [],
+                page: 1,
+                pageSize: 10,
+                tableData: [],
+            }
+        },
+        mounted: function () {
+            this.loadJob()
+        },
+        methods: {
+            /**
+             * 载入数据
+             */
+            loadJob() {
+                var _this = this
+                $.ajax({
+                    url: "http://localhost:8080/job/getJobByRegist",
+                    type: "POST",
+                    data: {
+                        start: _this.page,
+                        size: _this.pageSize,
+                        name: _this.input_find,
+                        regist: regist,
+                    },
+                    success: function (result) {
+                        if (result.code == 1) {
+                            _this.tableData = result.data || []
+                            _this.pageHeaderContent=result.data[0].companyName
+                            _this.counts = result.data[0].count || 0
+                            // 遍历tableData数组，将province、city、area合并为address字段
+                            _this.tableData.forEach(item => {
+                                item.address = item.province + item.city + item.area
+                            })
+                        } else {
+                            _this.$message.info(result.msg)
+                        }
+                    },
+                })
+            },
+            // 搜索查询
+            selectJob() {
+                this.page = 1; // Reset page to 1
+                this.loadJob();
+            },
+            /**
+             * 分页条功能监听器
+             */
+            handleSizeChange(val) {
+                this.pageSize = val
+                this.loadJob()
+            },
+            handleCurrentChange(val) {
+                this.page = val
+                this.loadJob()
+            },
+            //  删除岗位
+            deleteDeliver(row) {
+                this.$confirm('删除岗位以及所有投递记录, 是否继续?', '提示', {
+                    confirmButtonText: '确定',
+                    cancelButtonText: '取消',
+                    type: 'warning'
+                }).then(() => {
+                    var _this = this
+                    $.ajax({
+                        url: "http://localhost:8080/job/deleteJob",
+                        type: "POST",
+                        data: {
+                            id:row.id
+                        },
+                        success: function (result) {
+                            if (result.code == 1) {
+                                _this.$message.success(result.data)
+                                _this.loadJob()
+                            } else {
+                                _this.$message.error(result.msg)
+                            }
+                        },
+                    })
+                }).catch(() => {
+                    this.$message.info("取消删除")
+                });
+            },
+            //  点击返回按钮
+            goBack() {
+                window.location.href="company.html"
+            },
+            //  更新职位信息
+            updateJob(row){
+                window.location.href="updateJob.html?id="+row.id
+            },
+            //  发布职位
+            issueJob(){
+                window.location.href="inserJob.html?company="+regist
+            },
+            //  更新公司信息
+            updateCompany(row){
+                window.location.href="updateCompany.html?regist="+regist
+            },
+            //  留言功能
+            chatToUser(row){
+                window.location.href="chatToUser.html?job="+encodeURIComponent(JSON.stringify(row))
+            },
+            //  注销公司
+            deleteCompany(){
+                this.$confirm('注销公司并删除所有公司的信息, 是否继续?', '提示', {
+                    confirmButtonText: '确定',
+                    cancelButtonText: '取消',
+                    type: 'warning'
+                }).then(() => {
+                    var _this = this
+                    $.ajax({
+                        url: "http://localhost:8080/company/deleteCompany",
+                        type: "POST",
+                        data: {
+                            regist:regist
+                        },
+                        success: function (result) {
+                            if (result.code == 1) {
+                                alert(result.data)
+                                window.location.href="company.html?"
+                            } else {
+                                _this.$message.error(result.msg)
+                            }
+                        },
+                    })
+                }).catch(() => {
+                    this.$message.info("取消删除")
+                });
+            }
+        }
+    })
+</script>
+</body>
+</html>

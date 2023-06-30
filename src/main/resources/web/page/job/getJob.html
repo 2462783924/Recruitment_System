@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>getJob</title>
+
+    <script>    <!--判断用户是否登录-->
+    var login = JSON.parse(localStorage.getItem("login"))
+    var user = JSON.parse(localStorage.getItem("user"))
+    if (!login) window.location.href = "../head/login.html";
+    </script>
+
+    <style>
+        .el-select {
+            width: 130px;
+        }
+
+        .el-input {
+            width: 200px;
+        }
+
+        .input-with-select .el-input-group__prepend {
+            background-color: #fff;
+        }
+
+        .chat-input-container {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            display: flex;
+            align-items: flex-end;
+            padding: 10px;
+            gap: 10px; /* 添加按钮和输入框之间的间距 */
+        }
+
+        .chat-input-wrapper {
+            flex: 1;
+        }
+
+        .chat-input {
+            width: 100%;
+        }
+
+        .send-button-container {
+            flex-shrink: 0;
+        }
+
+        .bubble {
+            background-color: #f0f0f0; /* 设置气泡框的背景颜色 */
+            border-radius: 10px; /* 设置气泡框的圆角 */
+            padding: 5px 10px; /* 设置气泡框的内边距 */
+            display: inline-block; /* 使气泡框显示为内联元素 */
+        }
+
+        .message.left {
+            text-align: left;
+        }
+
+        .message.right {
+            text-align: right;
+        }
+
+    </style>
+
+</head>
+<body>
+
+<script src="../../js/vue.js"></script>
+<script src="../../element-ui/lib/index.js"></script>
+<link rel="stylesheet" href="../../element-ui/lib/theme-chalk/index.css">
+<link rel="stylesheet" type="text/css" href="../../css/container.css">
+<script src="../../js/axios.min.js"></script>
+<script src="http://libs.baidu.com/jquery/1.9.0/jquery.js"></script>
+
+
+<div id="job">
+    <el-container style="height: 100%; border: 1px solid #eee">
+
+        <el-drawer title="聊天界面" :visible.sync="showChat" :size="size" :before-close="closeChat">
+            <el-divider></el-divider>
+            <div class="chat-messages">
+                <!-- 加载聊天信息的部分 -->
+                <!-- 使用 v-for 循环渲染聊天信息列表 -->
+                <div v-for="message in chatMessages" :key="message.id" class="message"
+                     :class="{ 'left': message.receiver === user.username, 'right': message.sender === user.username }">
+                    <template v-if="message.sender === user.username">
+                        <span class="bubble">{{ message.msg }}</span> : {{ message.sender }}
+                    </template>
+                    <template v-else>
+                        {{ message.sender }}: <span class="bubble">{{ message.msg }}</span>
+                    </template>
+                    <div style="font-size:12px;font-style:italic;color: #999999;">{{ message.time }}</div>
+                </div>
+            </div>
+            <div class="chat-input-container">
+                <div class="chat-input-wrapper">
+                    <el-input
+                            v-model="inputMessage"
+                            placeholder="请输入消息"
+                            class="chat-input"
+                    ></el-input>
+                </div>
+                <div class="send-button-container">
+                    <el-button type="primary" @click="sendMessage" class="send-button">发送</el-button>
+                </div>
+            </div>
+        </el-drawer>
+        <!--主体-->
+        <el-main>
+
+            <div style="margin-top: 15px;">
+                <el-input placeholder="输入搜索的职位/公司" style="width: 500px" v-model="input_find" class="input-with-select">
+                </el-input>
+                <el-input placeholder="输入省" style="width: 100px" v-model="province" class="input-with-select">
+                </el-input>
+                <el-input placeholder="输入市" style="width: 100px" v-model="city" class="input-with-select">
+                </el-input>
+                <el-input placeholder="输入区" style="width: 100px" v-model="area" class="input-with-select">
+                </el-input>
+                <el-input placeholder="最少薪资" style="width: 100px" v-model="minSalary" class="input-with-select">
+                </el-input>
+                <el-input placeholder="最大薪资" style="width: 100px" v-model="maxSalary" class="input-with-select">
+                </el-input>
+                <el-button type="primary" plain icon="el-icon-search" circle @click="selectJob"></el-button>
+            </div>
+
+            <el-table :data="tableData" :show-header="status">
+                // 把id信息隐藏
+                <el-table-column prop="id" label="ID" show-overflow-tooltip v-if="false">
+                </el-table-column>
+                <el-table-column prop="name" label="职位">
+                </el-table-column>
+                <el-table-column prop="company" label="公司id" show-overflow-tooltip v-if="false">
+                </el-table-column>
+                <el-table-column prop="receiver" label="接收方" show-overflow-tooltip v-if="false">
+                </el-table-column>
+                <el-table-column prop="companyName" label="公司">
+                </el-table-column>
+                <el-table-column prop="salary" label="薪资">
+                </el-table-column>
+                <el-table-column prop="address" label="地址">
+                </el-table-column>
+                <el-table-column prop="description" label="描述">
+                </el-table-column>
+                <el-table-column prop="control" width=200px" label="操作" align="center">
+                    <template slot-scope="scope">
+                        <el-button type="primary" round @click="deliver(scope.row)">投递</el-button>
+                        <el-button type="success" round @click="openChat(scope.row)">交流</el-button>
+                    </template>
+                </el-table-column>
+
+            </el-table>
+        </el-main>
+    </el-container>
+
+    <!--分页功能条-->
+    <el-pagination
+            background
+            style="text-align:center;"
+            @size-change="handleSizeChange"
+            @current-change="handleCurrentChange"
+            :current-page="page"
+            :page-sizes="[5,10,15]"
+            :page-size="pageSize"
+            layout="total, sizes, prev, pager, next, jumper"
+            :total="counts">
+    </el-pagination>
+</div>
+
+<script type="module">
+    new Vue({
+        el: "#job",
+        data() {
+            return {
+                user: {
+                    username: user.username, // 根据实际情况进行赋值
+                },
+                input_find: '',
+                province: '',
+                city: '',
+                area: '',
+                minSalary: '',
+                maxSalary: '',
+                counts: [],
+                page: 1,
+                pageSize: 10,
+                tableData: [],
+                showChat: false,
+                size: '30%', // 定义抽屉的大小
+                chatMessages: [],  // 聊天信息列表
+                inputMessage: '',   // 输入框中的消息
+                chatInterval: null,
+                receiver: ''
+            }
+        },
+        mounted: function () {
+            this.loadJob()
+        },
+        methods: {
+            /**
+             * 载入数据
+             */
+            loadJob() {
+                var _this = this
+                $.ajax({
+                    url: "http://localhost:8080/job/getJobs",
+                    type: "POST",
+                    data: {
+                        start: _this.page,
+                        size: _this.pageSize,
+                        name: _this.input_find,
+                        province: _this.province,
+                        city: _this.city,
+                        area: _this.area,
+                        min: _this.minSalary,
+                        max: _this.maxSalary
+                    },
+                    success: function (result) {
+                        if (result.code == 1) {
+                            _this.tableData = result.data || []
+                            _this.counts = result.data[0].count || 0
+                            // 遍历tableData数组，将province、city、area合并为address字段
+                            _this.tableData.forEach(item => {
+                                item.address = item.province + item.city + item.area
+                            })
+                        } else {
+                            _this.$message.info(result.msg)
+                        }
+                    },
+                })
+            },
+            // 搜索查询
+            selectJob() {
+                this.page = 1; // Reset page to 1
+                this.loadJob();
+            },
+            /**
+             * 分页条功能监听器
+             */
+            handleSizeChange(val) {
+                this.pageSize = val
+                this.loadJob()
+            },
+            handleCurrentChange(val) {
+                this.page = val
+                this.loadJob()
+            },
+            /**
+             * 投递职位
+             * @param row
+             */
+            deliver(row) {
+                var _this = this
+                $.ajax({
+                    url: "http://localhost:8080/user/isexistResume",
+                    type: "POST",
+                    data: {
+                        username: login.username
+                    },
+                    success: function (result) {
+                        if (result.code == 1) {
+                            //  弹窗确认信息
+                            _this.clickDeliver(row)
+                        } else {
+                            //  否则完善个人信息
+                            window.location.href = '../personal/resume.html';
+                        }
+                    },
+                })
+            },
+            //  点击投递简历后的弹窗
+            clickDeliver(row) {
+                var _this = this
+                this.$confirm(
+                    '姓名：' + user.name +
+                    '<br>性别：' + user.sex +
+                    '<br>邮箱：' + user.email +
+                    '<br>电话：' + user.phone +
+                    '<br>个人信息：' + user.information +
+                    '<br>简历文件：' + user.resume,
+                    '确认投递：' + row.companyName, {
+                        confirmButtonText: '确定',
+                        cancelButtonText: '取消',
+                        type: 'info',
+                        dangerouslyUseHTMLString: true
+                    }).then(() => {
+                    this.sendResume(row)
+                }).catch(() => {
+                    this.$message({
+                        type: 'warning',
+                        message: '已取消投递'
+                    });
+                });
+            },
+            //  确定投递简历
+            sendResume(row) {
+                var _this = this
+                $.ajax({
+                    url: "http://localhost:8080/deliver/saveDeliver",
+                    type: "POST",
+                    data: {
+                        username: user.username,
+                        company: row.company,
+                        job: row.id,
+                        receiver:row.receiver
+                    },
+                    success: function (result) {
+                        if (result.code == 1) {
+                            _this.$message.success(result.data)
+                        } else {
+                            _this.$message.error(result.msg)
+                        }
+                    },
+                })
+            },
+            //  打开聊天窗口
+            openChat(row) {
+                // 定期加载聊天消息
+                var _this = this;
+                _this.receiver = row.receiver
+                _this.loadChatMessages(row); // 初始加载
+                _this.chatInterval = setInterval(() => _this.loadChatMessages(row), 5000); // 每5秒加载一次
+            },
+            loadChatMessages(row) {
+                var _this = this;
+                $.ajax({
+                    url: "http://localhost:8080/chat/getChat",
+                    type: "POST",
+                    data: {
+                        sender: user.username,
+                        receiver: row.receiver
+                    },
+                    success: function (result) {
+                        if (result.code == 1) {
+                            _this.chatMessages = result.data.map(message => {
+                                // 将时间戳转换成可读的日期格式
+                                const date = new Date(message.time);
+                                message.time = date.toLocaleString();
+                                return message;
+                            });
+                            _this.showChat = true;
+                        } else {
+                            _this.$message.error(result.msg)
+                            if (result.msg == "无法与自身用户交流") {
+                                _this.showChat = false;
+                                clearInterval(_this.chatInterval);
+                            }
+                        }
+                    },
+                });
+            },
+            //  关闭聊天窗口
+            closeChat() {
+                var _this = this
+                clearInterval(_this.chatInterval);
+                _this.showChat = false;
+            },
+            //  发送消息
+            sendMessage() {
+                var _this = this;
+                $.ajax({
+                    url: "http://localhost:8080/chat/insertChat",
+                    type: "POST",
+                    data: {
+                        sender: user.username,
+                        receiver: _this.receiver,
+                        msg: _this.inputMessage
+                    },
+                    success: function (result) {
+                        if (result.code == 1) {
+                            // 将输入框中的消息加入聊天信息列表中
+                            _this.chatMessages.push({
+                                sender: user.username,  // 假设当前用户为发送者
+                                msg: _this.inputMessage,
+                                time: result.data.toLocaleString()
+                            });
+                            // 清空输入框中的消息
+                            _this.inputMessage = '';
+                        } else {
+                            _this.$message.error(result.msg)
+                        }
+                    },
+                });
+
+            }
+        }
+    })
+</script>
+</body>
+</html>

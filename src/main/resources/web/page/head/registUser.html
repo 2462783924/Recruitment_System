@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>registUser</title>
+    <link rel="stylesheet" href="../../element-ui/lib/theme-chalk/index.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+            padding: 20px;
+        }
+
+        #new {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            margin: 0 auto;
+        }
+
+        .demo-insertForm {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .demo-insertForm .el-form-item {
+            margin-bottom: 20px;
+        }
+
+        .demo-insertForm .el-button {
+            margin-right: 10px;
+        }
+    </style>
+</head>
+<body>
+
+<div id="new" style="width:500px">
+    <el-form :model="insertForm" :rules="rules" ref="insertForm" label-width="100px" class="demo-insertForm">
+
+        <el-form-item label="用户名" prop="username" style="width: 320px">
+            <el-input v-model="insertForm.username" placeholder="请输入邮箱/电话"></el-input>
+        </el-form-item>
+
+        <el-form-item label="密码" prop="password" style="width: 320px">
+            <el-input v-model="insertForm.password" placeholder="请输入密码" show-password></el-input>
+        </el-form-item>
+
+        <el-form-item label="二次密码" prop="again" style="width: 320px">
+            <el-input v-model="insertForm.again" placeholder="请再次输入密码" show-password></el-input>
+        </el-form-item>
+
+        <el-form-item>
+            <el-button type="primary" @click="submitForm">保存</el-button>
+            <el-button @click="clearForm('insertForm')">清空</el-button>
+        </el-form-item>
+    </el-form>
+</div>
+
+<script src="../../js/vue.js"></script>
+<script src="../../element-ui/lib/index.js"></script>
+<script src="../../js/axios.min.js"></script>
+<script src="http://libs.baidu.com/jquery/1.9.0/jquery.js"></script>
+<script>
+    new Vue({
+        el: "#new",
+        data() {
+            return {
+                insertForm: {
+                    username: '',
+                    password: '',
+                    again: '',
+                },
+                rules: {
+                    username: [
+                        {required: true, message: '请输入用户名', trigger: 'blur'},
+                        {
+                            validator: (rule, value, callback) => {
+                                if (!value) {
+                                    callback();
+                                } else if (
+                                    !/^1[0-9]{10}$/.test(value) && // 手机号格式：11位数字，以1开头
+                                    !/^[a-zA-Z0-9_-]+@[a-zA-Z0-9_-]+(\.[a-zA-Z0-9_-]+)+$/.test(value) // 邮箱格式
+                                ) {
+                                    callback(new Error('请输入有效的邮箱或手机号'));
+                                } else {
+                                    callback();
+                                }
+                            },
+                            trigger: 'blur'
+                        }
+                    ],
+                    password: [
+                        {required: true, message: '请输入密码', trigger: 'blur'},
+                        { min: 6, message: '密码长度不能少于6个字符', trigger: 'blur' },
+                    ],
+                    again: [
+                        { required: true, message: '请输入二次密码', trigger: 'blur' },
+                        {
+                            validator: (rule, value, callback) => {
+                                if (value !== this.insertForm.password) {
+                                    callback(new Error('两次输入的密码不一致'));
+                                } else {
+                                    callback();
+                                }
+                            },
+                            trigger: 'blur'
+                        }
+                    ],
+                }
+            };
+        },
+        methods: {
+            submitForm() {
+                var _this = this;
+                this.$refs.insertForm.validate(valid => {
+                    //表单验证失败
+                    if (!valid) {
+                        return false;
+                    }
+                    //表单验证通过
+                    $.ajax({
+                        url: "http://localhost:8080/login/userRegist",
+                        type: "POST",
+                        data: JSON.stringify(_this.insertForm),
+                        contentType: "application/json;charsetset=UTF-8",
+                        dataType: "json",
+                        xhrFields: {
+                            withCredentials: true
+                        },
+                        success: function (result) {
+                            if (result.code == '1') {
+                                alert(JSON.stringify(result.data))
+                                window.location.href = './login.html'
+                            } else {
+                                _this.$message.error(result.msg)
+                            }
+                        }, error: function () { // 服务器出错
+                            _this.$message.info("服务器繁忙，请稍后再试")
+                        }
+                    })
+                });
+
+            },
+            // 清空表单
+            clearForm() {
+                this.$refs.insertForm.resetFields(); //  清空表单
+            },
+        }
+    })
+</script>
+</body>
+</html>

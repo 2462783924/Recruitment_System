@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>欢迎登录</title>
+    <link rel="icon" href="../../img/logo.png" sizes="16x16">
+    <style>
+        /*设置居中*/
+        .login-form {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 410px;
+            height: 380px;
+            overflow: hidden;
+            animation: border-animation 5s infinite;
+            border: 2px solid;
+        }
+
+        @keyframes border-animation {
+            0% {
+                border-color: #ffffff;
+            }
+            12.22% {
+                border-color: #cce2f3;
+            }
+            24.44% {
+                border-color: #abf1eb;
+            }
+            36.66% {
+                border-color: #3ae6d8;
+            }
+            48.88% {
+                border-color: #3a90e6;
+            }
+            61.11% {
+                border-color: #6ba0de;
+            }
+            73.33% {
+                border-color: #7eeee9;
+            }
+            85.55% {
+                border-color: #caf5e8;
+            }
+            100% {
+                border-color: #ffffff;
+            }
+        }
+
+    </style>
+
+
+</head>
+<body @keyup.enter="login">
+<script src="../../js/vue.js"></script>
+<script src="../../element-ui/lib/index.js"></script>
+<link rel="stylesheet" href="../../element-ui/lib/theme-chalk/index.css">
+<script src="../../js/axios.min.js"></script>
+<script src="http://libs.baidu.com/jquery/1.9.0/jquery.js"></script>
+
+<div id="app" class="login-form" style="border: 2px solid #41beff; padding: 50px;">
+
+    <h1 style="color: #41beff;text-align: center;">IT人才招聘管理系统</h1><br>
+
+    <el-form :label-position="labelPosition" label-width="80px" :model="formLabelAlign" :rules="rules">
+
+        <el-form-item label="账号：" prop="username">
+            <el-input v-model="formLabelAlign.username" id="username" placeholder="请输入账号：">
+            </el-input>
+        </el-form-item>
+
+        <el-form-item label="密码：" prop="password">
+            <el-input v-model="formLabelAlign.password" id="password" placeholder="请输入密码：" show-password>
+            </el-input>
+        </el-form-item>
+
+        <el-form-item>
+            <template>
+                <el-checkbox id="savePassword" v-model="formLabelAlign.checked">记住密码</el-checkbox>
+            </template>
+            <el-link type="primary" style="float: right" @click="registUser">注册用户</el-link>
+        </el-form-item>
+
+            <el-button :loading="loading" @click="login" type="primary" style="width:100%;"
+                       icon="el-icon-mouse">
+                <span v-if="!loading">登录</span>
+                <span v-else>登录中...</span>
+            </el-button>
+
+    </el-form>
+
+</div>
+
+<script type="module">
+    new Vue({
+        el: "#app",
+        created(){
+            var savedUsername = localStorage.getItem('savedUsername');
+            var savedPassword = localStorage.getItem('savedPassword');
+            if (savedPassword) {
+                this.formLabelAlign.username = savedUsername;
+                this.formLabelAlign.password = savedPassword;
+                this.formLabelAlign.checked = true;
+            }
+            //  实现在整个页面的任何地方点击回车键都能登录
+            //  添加键盘事件监听器
+            window.addEventListener('keydown', this.handleKeydown);
+        },
+        destroyed(){
+            //  移除键盘事件监听器，以避免内存泄漏
+            window.removeEventListener('keydown', this.handleKeydown);
+        },
+
+        data() {
+            return {
+                loading: false,
+                labelPosition: 'left',
+                formLabelAlign: {
+                    username: '',
+                    password: '',
+                    checked: false,
+                },
+                // 验证账号密码不能为空
+                rules: {
+                    username: [
+                        {required: true, message: '请输入账号', trigger: 'blur'}
+                    ],
+                    password: [
+                        {required: true, message: '请输入密码', trigger: 'blur'}
+                    ]
+                },
+            };
+        },
+
+        methods: {
+            //  检查按下的键是否为回车键（键码为 13），然后调用登录逻辑
+            handleKeydown(event) {
+                if (event.keyCode === 13) {
+                    this.login();
+                }
+            },
+            //  登录方法
+            login() {
+                var vm = this;
+                vm.loading = true
+
+                // 保存密码逻辑
+                var savePasswordCheckbox = document.querySelector('#savePassword input[type="checkbox"]');
+                if (savePasswordCheckbox.checked) {
+                    localStorage.setItem('savedUsername', vm.formLabelAlign.username);
+                    localStorage.setItem('savedPassword', vm.formLabelAlign.password);
+                } else {
+                    localStorage.removeItem('savedUsername');
+                    localStorage.removeItem('savedPassword');
+                }
+                // 发送登录请求，将用户名和密码作为参数
+                $.ajax({
+                    url: "http://localhost:8080/login/checkCredentials",
+                    type: "POST",
+                    data: JSON.stringify(vm.formLabelAlign),
+                    contentType: "application/json;charsetset=UTF-8",
+                    dataType: "json",
+                    xhrFields:{
+                        withCredentials:true
+                    },
+                    success: function (result) {
+                        if (result.code == '1') {// 登录成功
+                            // 获取身份标识码
+                            localStorage.setItem('login', JSON.stringify(result.data)) // 将数据存到页面
+                            if (result.data.role=='0'){
+                                window.location.href = '../main/main.html';
+                            }else if (result.data.role=='1'){
+                                window.location.href = '../admin/admin.html';
+                            }
+                        } else { // 登录失败
+                            vm.$message.error(result.msg)
+                            vm.loading = false
+                        }
+                    }, error: function () { // 服务器出错
+                        vm.$message.info("服务器繁忙，请稍后再试")
+                        vm.loading = false
+                    }
+                })
+            },
+            registUser(){
+                window.location.href="registUser.html"
+            }
+        }
+    })
+
+</script>
+
+</body>
+</html>

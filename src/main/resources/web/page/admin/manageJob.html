@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>manageJob</title>
+
+    <script>    <!--判断用户是否登录&是否为管理员-->
+    var login = JSON.parse(localStorage.getItem("login"))
+    if (!login) {
+        window.location.href = "../head/login.html"
+    }else if(login.role!="1"){
+        window.location.href = "../head/login.html"
+    }
+    </script>
+
+    <style>
+        .el-select {
+            width: 130px;
+        }
+
+        .el-input {
+            width: 200px;
+        }
+
+        .input-with-select .el-input-group__prepend {
+            background-color: #fff;
+        }
+    </style>
+
+</head>
+<body>
+
+<script src="../../js/vue.js"></script>
+<script src="../../element-ui/lib/index.js"></script>
+<link rel="stylesheet" href="../../element-ui/lib/theme-chalk/index.css">
+<link rel="stylesheet" type="text/css" href="../../css/container.css">
+<script src="../../js/axios.min.js"></script>
+<script src="http://libs.baidu.com/jquery/1.9.0/jquery.js"></script>
+
+
+<div id="job">
+    <el-container style="height: 100%; border: 1px solid #eee">
+        <!--主体-->
+        <el-main>
+
+            <div style="margin-top: 15px;">
+                <el-input placeholder="输入搜索的职位/公司" style="width: 500px" v-model="input_find" class="input-with-select">
+                </el-input>
+                <el-input placeholder="输入省" style="width: 100px" v-model="province" class="input-with-select">
+                </el-input>
+                <el-input placeholder="输入市" style="width: 100px" v-model="city" class="input-with-select">
+                </el-input>
+                <el-input placeholder="输入区" style="width: 100px" v-model="area" class="input-with-select">
+                </el-input>
+                <el-input placeholder="最少薪资" style="width: 100px" v-model="minSalary" class="input-with-select">
+                </el-input>
+                <el-input placeholder="最大薪资" style="width: 100px" v-model="maxSalary" class="input-with-select">
+                </el-input>
+                <el-button type="primary" plain icon="el-icon-search" circle @click="selectJob"></el-button>
+            </div>
+
+            <el-table :data="tableData" :show-header="status">
+                // 把id信息隐藏
+                <el-table-column prop="id" label="职位ID">
+                </el-table-column>
+                <el-table-column prop="name" label="职位">
+                </el-table-column>
+                <el-table-column prop="company" label="公司id">
+                </el-table-column>
+                <el-table-column prop="companyName" label="公司">
+                </el-table-column>
+                <el-table-column prop="salary" label="薪资">
+                </el-table-column>
+                <el-table-column prop="address" label="地址">
+                </el-table-column>
+                <el-table-column prop="description" label="描述">
+                </el-table-column>
+                <el-table-column prop="control" width=200px" label="操作" align="center">
+                    <template slot-scope="scope">
+                        <el-button type="danger" icon="el-icon-delete" circle @click="deleteJob(scope.row)"></el-button>
+                    </template>
+                </el-table-column>
+
+            </el-table>
+        </el-main>
+    </el-container>
+
+    <!--分页功能条-->
+    <el-pagination
+            background
+            style="text-align:center;"
+            @size-change="handleSizeChange"
+            @current-change="handleCurrentChange"
+            :current-page="page"
+            :page-sizes="[5,10,15]"
+            :page-size="pageSize"
+            layout="total, sizes, prev, pager, next, jumper"
+            :total="counts">
+    </el-pagination>
+</div>
+
+<script type="module">
+    new Vue({
+        el: "#job",
+        data() {
+            return {
+                input_find: '',
+                province: '',
+                city: '',
+                area: '',
+                minSalary: '',
+                maxSalary: '',
+                counts: [],
+                page: 1,
+                pageSize: 10,
+                tableData: [],
+            }
+        },
+        mounted: function () {
+            this.loadJob()
+        },
+        methods: {
+            /**
+             * 载入数据
+             */
+            loadJob() {
+                var _this = this
+                $.ajax({
+                    url: "http://localhost:8080/job/getJobs",
+                    type: "POST",
+                    data: {
+                        start: _this.page,
+                        size: _this.pageSize,
+                        name: _this.input_find,
+                        province: _this.province,
+                        city: _this.city,
+                        area: _this.area,
+                        min: _this.minSalary,
+                        max: _this.maxSalary
+                    },
+                    success: function (result) {
+                        if (result.code == 1) {
+                            _this.tableData = result.data || []
+                            _this.counts = result.data[0].count || 0
+                            // 遍历tableData数组，将province、city、area合并为address字段
+                            _this.tableData.forEach(item => {
+                                item.address = item.province + item.city + item.area
+                            })
+                        } else {
+                            _this.$message.info(result.msg)
+                        }
+                    },
+                })
+            },
+            // 搜索查询
+            selectJob() {
+                this.page = 1; // Reset page to 1
+                this.loadJob();
+            },
+            /**
+             * 分页条功能监听器
+             */
+            handleSizeChange(val) {
+                this.pageSize = val
+                this.loadJob()
+            },
+            handleCurrentChange(val) {
+                this.page = val
+                this.loadJob()
+            },
+            //  删除岗位
+            deleteJob(row) {
+                this.$confirm('删除岗位及其所有投递记录, 是否继续?', '提示', {
+                    confirmButtonText: '确定',
+                    cancelButtonText: '取消',
+                    type: 'warning'
+                }).then(() => {
+                    var _this = this
+                    $.ajax({
+                        url: "http://localhost:8080/job/deleteJob",
+                        type: "POST",
+                        data: {
+                            id: row.id
+                        },
+                        success: function (result) {
+                            if (result.code == 1) {
+                                _this.$message.success(result.data)
+                                _this.loadJob()
+                            } else {
+                                _this.$message.error(result.msg)
+                            }
+                        },
+                    })
+                }).catch(() => {
+                }).catch(() => {
+                    this.$message.info("取消删除")
+                });
+            },
+        }
+    })
+</script>
+</body>
+</html>

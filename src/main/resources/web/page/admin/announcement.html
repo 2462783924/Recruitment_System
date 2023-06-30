@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Announcement</title>
+  <link rel="stylesheet" href="../../element-ui/lib/theme-chalk/index.css">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f5f5f5;
+    }
+
+    #ann {
+      width: 500px;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: #fff;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    }
+
+    .form-item {
+      margin-bottom: 20px;
+    }
+
+    .button-container {
+      text-align: right;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+<script>
+  // 判断用户是否登录&是否为管理员
+  var login = JSON.parse(localStorage.getItem("login"));
+  if (!login || login.role !== "1") {
+    window.location.href = "../head/login.html";
+  }
+</script>
+
+<div id="ann">
+  <el-form :model="insertForm" :rules="rules" ref="insertForm" label-width="100px" class="demo-insertForm">
+
+    <el-form-item label="公告内容" prop="msg">
+      <el-input type="textarea" :rows="5" v-model="insertForm.msg" placeholder="请输入公告内容"></el-input>
+    </el-form-item>
+
+    <el-form-item class="button-container">
+      <el-button type="primary" @click="submitForm">发布</el-button>
+      <el-button @click="clearForm('insertForm')">清空</el-button>
+    </el-form-item>
+  </el-form>
+</div>
+
+<script src="../../js/vue.js"></script>
+<script src="../../element-ui/lib/index.js"></script>
+<script src="../../js/axios.min.js"></script>
+<script src="http://libs.baidu.com/jquery/1.9.0/jquery.js"></script>
+<script>
+  new Vue({
+    el: "#ann",
+    data() {
+      return {
+        insertForm: {
+          msg: '',
+        },
+        rules: {
+          msg: [
+            {required: true, message: '请输入公告内容', trigger: 'blur'},
+          ],
+        }
+      };
+    },
+    methods: {
+      submitForm() {
+        var _this = this;
+        this.$refs.insertForm.validate(valid => {
+          //  表单校验不通过
+          if (!valid) {
+            return false;
+          }
+          //  表单校验通过
+          $.ajax({
+            url: "http://localhost:8080/chat/sendAnnouncement",
+            type: "POST",
+            data: {
+              sender:login.username,
+              msg:_this.insertForm.msg
+            },
+            success: function (result) {
+              if (result.code == '1') {
+                _this.$message.success(result.data);
+              } else {
+                _this.$message.error(result.msg);
+              }
+            },
+            error: function () {
+              _this.$message.info("服务器繁忙，请稍后再试");
+            }
+          });
+        });
+      },
+      clearForm() {
+        this.$refs.insertForm.resetFields();
+      },
+    }
+  });
+</script>
+</body>
+</html>

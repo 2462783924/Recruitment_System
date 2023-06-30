@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>chatToUser</title>
+
+    <script>    <!--判断用户是否登录-->
+    var login = JSON.parse(localStorage.getItem("login"))
+    var user = JSON.parse(localStorage.getItem("user"))
+    if (!login) window.location.href = "../head/login.html";
+    // 获取 URL 参数
+    const params = new URLSearchParams(window.location.search);
+    // 获取 job 参数的值
+    const jobStr = decodeURIComponent(params.get('job'));
+    // 解析为对象
+    var job = JSON.parse(jobStr);
+    </script>
+
+    <style>
+        .el-select {
+            width: 130px;
+        }
+
+        .el-input {
+            width: 200px;
+        }
+
+        .input-with-select .el-input-group__prepend {
+            background-color: #fff;
+        }
+
+        .chat-input-container {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            display: flex;
+            align-items: flex-end;
+            padding: 10px;
+            gap: 10px; /* 添加按钮和输入框之间的间距 */
+        }
+
+        .chat-input-wrapper {
+            flex: 1;
+        }
+
+        .chat-input {
+            width: 100%;
+        }
+
+        .send-button-container {
+            flex-shrink: 0;
+        }
+
+        .bubble {
+            background-color: #f0f0f0; /* 设置气泡框的背景颜色 */
+            border-radius: 10px; /* 设置气泡框的圆角 */
+            padding: 5px 10px; /* 设置气泡框的内边距 */
+            display: inline-block; /* 使气泡框显示为内联元素 */
+        }
+
+        .message.left {
+            text-align: left;
+        }
+
+        .message.right {
+            text-align: right;
+        }
+    </style>
+
+</head>
+<body>
+
+<script src="../../js/vue.js"></script>
+<script src="../../element-ui/lib/index.js"></script>
+<link rel="stylesheet" href="../../element-ui/lib/theme-chalk/index.css">
+<link rel="stylesheet" type="text/css" href="../../css/container.css">
+<script src="../../js/axios.min.js"></script>
+<script src="http://libs.baidu.com/jquery/1.9.0/jquery.js"></script>
+
+
+<div id="man">
+    <el-container style="height: 100%; border: 1px solid #eee">
+        <el-drawer title="聊天界面" :visible.sync="showChat" :size="size" :before-close="closeChat">
+            <el-divider></el-divider>
+            <div class="chat-messages">
+                <!-- 加载聊天信息的部分 -->
+                <!-- 使用 v-for 循环渲染聊天信息列表 -->
+                <div v-for="message in chatMessages" :key="message.id" class="message"
+                     :class="{ 'left': message.receiver === user.username, 'right': message.sender === user.username }">
+                    <template v-if="message.sender === user.username">
+                        <span class="bubble">{{ message.msg }}</span> : {{ message.sender }}
+                    </template>
+                    <template v-else>
+                        {{ message.sender }}: <span class="bubble">{{ message.msg }}</span>
+                    </template>
+                    <div style="font-size:12px;font-style:italic;color: #999999;">{{ message.time }}</div>
+                </div>
+            </div>
+            <div class="chat-input-container">
+                <div class="chat-input-wrapper">
+                    <el-input
+                            v-model="inputMessage"
+                            placeholder="请输入消息"
+                            class="chat-input"
+                    ></el-input>
+                </div>
+                <div class="send-button-container">
+                    <el-button type="primary" @click="sendMessage" class="send-button">发送</el-button>
+                </div>
+            </div>
+        </el-drawer>
+        <!--主体-->
+        <el-main>
+            <el-page-header @back="goBack" :content="pageHeaderContent">
+            </el-page-header>
+            <div style="margin-top: 15px;">
+                <el-input placeholder="输入用户名" style="width: 500px" v-model="input_find" class="input-with-select">
+                </el-input>
+                <el-button slot="append" icon="el-icon-search" @click="selectChat"></el-button>
+            </div>
+
+            <el-table :data="tableData" :show-header="status">
+                // 把id信息隐藏
+                <el-table-column prop="id" label="id" show-overflow-tooltip v-if="false">
+                </el-table-column>
+                <el-table-column prop="bothside" label="bothside" show-overflow-tooltip v-if="false">
+                </el-table-column>
+                <el-table-column prop="sender" label="用户名">
+                </el-table-column>
+                <el-table-column prop="resume" label="简历信息">
+                    <template slot-scope="scope">
+                        <el-link @click="downloadResume(scope.row.resume)" type="primary" :underline="false">{{ scope.row.resume }}</el-link>
+                    </template>
+                </el-table-column>
+
+
+                <el-table-column prop="control" width=200px" label="操作" align="center">
+                    <template slot-scope="scope">
+                        <el-button @click="openChat(scope.row)" type="primary" icon="el-icon-edit" circle></el-button>
+                        <el-button @click="deleteChat(scope.row)" type="danger" icon="el-icon-delete" circle></el-button>
+                    </template>
+                </el-table-column>
+
+            </el-table>
+        </el-main>
+    </el-container>
+
+    <!--分页功能条-->
+    <el-pagination
+            background
+            style="text-align:center;"
+            @size-change="handleSizeChange"
+            @current-change="handleCurrentChange"
+            :current-page="page"
+            :page-sizes="[5,10,15]"
+            :page-size="pageSize"
+            layout="total, sizes, prev, pager, next, jumper"
+            :total="counts">
+    </el-pagination>
+</div>
+
+<script type="module">
+
+    new Vue({
+        el: "#man",
+        data() {
+            return {
+                pageHeaderContent:job.name,
+                input_find: '',
+                counts: [],
+                page: 1,
+                pageSize: 10,
+                tableData: [],
+                user: {
+                    username: user.username, // 根据实际情况进行赋值
+                },
+                showChat: false,
+                size: '30%', // 定义抽屉的大小
+                chatMessages: [],  // 聊天信息列表
+                inputMessage: '',   // 输入框中的消息
+                chatInterval: null,
+                sender: ''
+            }
+        },
+        mounted: function () {
+            this.loadChat()
+        },
+        methods: {
+            /**
+             * 载入数据
+             */
+            loadChat() {
+                var _this = this
+                $.ajax({
+                    url: "http://localhost:8080/chat/getChatList",
+                    type: "POST",
+                    data: {
+                        start: _this.page,
+                        size: _this.pageSize,
+                        receiver: user.username,
+                        sender:_this.input_find,
+                        job:job.id
+                    },
+                    success: function (result) {
+                        if (result.code == 1) {
+                            _this.tableData = result.data || []
+                            _this.counts = result.data[0].count || 0
+                        } else {
+                            _this.$message.info(result.msg)
+                            _this.tableData=[]
+                        }
+                    },
+                })
+            },
+            // 搜索查询
+            selectChat() {
+                this.page = 1; // Reset page to 1
+                this.loadChat();
+            },
+            /**
+             * 分页条功能监听器
+             */
+            handleSizeChange(val) {
+                this.pageSize = val
+                this.loadChat()
+            },
+            handleCurrentChange(val) {
+                this.page = val
+                this.loadChat()
+            },
+            //  删除聊天记录
+            deleteChat(row) {
+                this.$confirm('删除与该用户的所有聊天记录以及投递记录, 是否继续?', '提示', {
+                    confirmButtonText: '确定',
+                    cancelButtonText: '取消',
+                    type: 'warning'
+                }).then(() => {
+                    var _this = this
+                    $.ajax({
+                        url: "http://localhost:8080/chat/deleteChatAndDeliver",
+                        type: "POST",
+                        data: {
+                            username:row.sender,
+                            bothside:row.bothside
+                        },
+                        success: function (result) {
+                            if (result.code == 1) {
+                                _this.$message.success(result.data)
+                                _this.loadChat()
+                            } else {
+                                _this.$message.error(result.msg)
+                            }
+                        },
+                    })
+                }).catch(() => {
+                    this.$message.info("取消删除")
+                });
+            },
+            //  点击返回按钮
+            goBack() {
+                window.location.href="manageCompany.html?regist="+job.company
+            },
+            //  打开聊天窗口
+            openChat(row) {
+                // 定期加载聊天消息
+                var _this = this;
+                _this.sender = row.sender
+                _this.loadChatMessages(row); // 初始加载
+                _this.chatInterval = setInterval(() => _this.loadChatMessages(row), 5000); // 每5秒加载一次
+            },
+            loadChatMessages(row) {
+                var _this = this;
+                $.ajax({
+                    url: "http://localhost:8080/chat/getChat",
+                    type: "POST",
+                    data: {
+                        sender: user.username,
+                        receiver: row.sender
+                    },
+                    success: function (result) {
+                        if (result.code == 1) {
+                            _this.chatMessages = result.data.map(message => {
+                                // 将时间戳转换成可读的日期格式
+                                const date = new Date(message.time);
+                                message.time = date.toLocaleString();
+                                return message;
+                            });
+                            _this.showChat = true;
+                        } else {
+                            _this.$message.error(result.msg)
+                            if (result.msg == "无法与自身用户交流") {
+                                _this.showChat = false;
+                                clearInterval(_this.chatInterval);
+                            }
+                        }
+                    },
+                });
+            },
+            //  关闭聊天窗口
+            closeChat() {
+                var _this = this
+                clearInterval(_this.chatInterval);
+                _this.showChat = false;
+            },
+            //  发送消息
+            sendMessage() {
+                var _this = this;
+                $.ajax({
+                    url: "http://localhost:8080/chat/insertChat",
+                    type: "POST",
+                    data: {
+                        sender: user.username,
+                        receiver: _this.sender,
+                        msg: _this.inputMessage
+                    },
+                    success: function (result) {
+                        if (result.code == 1) {
+                            // 将输入框中的消息加入聊天信息列表中
+                            _this.chatMessages.push({
+                                sender: user.username,  // 假设当前用户为发送者
+                                msg: _this.inputMessage,
+                                time: result.data.toLocaleString()
+                            });
+                            // 清空输入框中的消息
+                            _this.inputMessage = '';
+                        } else {
+                            _this.$message.error(result.msg)
+                        }
+                    },
+                });
+            },
+            downloadResume(resume){
+                var downloadUrl = "http://localhost:8080/deliver/downloadResume?resume=" + encodeURIComponent(resume);
+                // 打开下载链接
+                window.open(downloadUrl);
+            },
+        }
+    })
+</script>
+</body>
+</html>

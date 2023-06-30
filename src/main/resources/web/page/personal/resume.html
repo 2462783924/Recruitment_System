@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>resume</title>
+</head>
+<body>
+<script>    <!--判断用户是否登录-->
+var login = JSON.parse(localStorage.getItem("login"))
+var user = JSON.parse(localStorage.getItem("user"))
+if (!login) window.location.href = "../head/login.html";
+</script>
+
+<script src="../../js/vue.js"></script>
+<script src="../../element-ui/lib/index.js"></script>
+<link rel="stylesheet" href="../../element-ui/lib/theme-chalk/index.css">
+<script src="../../js/axios.min.js"></script>
+<script src="http://libs.baidu.com/jquery/1.9.0/jquery.js"></script>
+
+<div id="update" style="width:500px">
+    <el-form :model="insertForm" :rules="rules" ref="insertForm" label-width="100px" class="demo-insertForm">
+        <el-form-item label="用户名" prop="username" style="width: 320px" v-if="false">
+            <el-input v-model="insertForm.username"></el-input>
+        </el-form-item>
+
+        <el-form-item label="姓名" prop="name" style="width: 320px">
+            <el-input v-model="insertForm.name" placeholder="请输入姓名"></el-input>
+        </el-form-item>
+
+        <el-form-item label="性别" prop="sex">
+            <el-radio-group v-model="insertForm.sex">
+                <el-radio label="男">男</el-radio>
+                <el-radio label="女">女</el-radio>
+            </el-radio-group>
+        </el-form-item>
+
+        <el-form-item label="邮箱" prop="email" style="width: 320px">
+            <el-input v-model="insertForm.email" placeholder="请输入邮箱"></el-input>
+        </el-form-item>
+
+        <el-form-item label="电话" prop="phone" style="width: 320px">
+            <el-input v-model="insertForm.phone" placeholder="请输入电话"></el-input>
+        </el-form-item>
+
+        <el-form-item label="个人信息" prop="information" style="width: 320px">
+            <el-input type="textarea" v-model="insertForm.information" placeholder="请输入个人简介"></el-input>
+        </el-form-item>
+
+        <el-form-item label="上传简历" prop="file">
+            <el-upload
+                    class="upload-demo"
+                    ref="upload"
+                    :action="insertForm.loadUrl"
+                    :limit="1"
+                    :on-exceed="handleExceed"
+                    :auto-upload="false"
+                    :on-change="fileChange"
+                    :on-remove="fileRemove"
+                    :file-list="fileList">
+                <el-button slot="trigger" size="small" type="info" plain>点击上传</el-button>
+            </el-upload>
+        </el-form-item>
+
+        <el-form-item>
+            <el-button type="primary" @click="submitForm">保存</el-button>
+            <el-button @click="clearForm('insertForm')">清空</el-button>
+        </el-form-item>
+    </el-form>
+</div>
+<script>
+    new Vue({
+        el: "#update",
+        data() {
+            return {
+                insertForm: {
+                    username: login.username,
+                    name: '',
+                    email: '',
+                    phone: '',
+                    information: '',
+                    sex: '',
+                    file: null,
+                    loadUrl: 'http://localhost:8080/user/saveResume?username=' + login.username
+                },
+                rules: {
+                    name: [
+                        {required: true, message: '请输入姓名', trigger: 'blur'},
+                    ],
+                    email: [
+                        {required: true, message: '请输入邮箱', trigger: 'blur'},
+                    ],
+                    phone: [
+                        {required: true, message: '请输入电话', trigger: 'blur'},
+                    ],
+                    sex: [
+                        {required: true, message: '请选择性别', trigger: 'blur'}
+                    ],
+                    file: [
+                        {required: true, message: '请上传简历', trigger: 'change'}
+                    ],
+                }
+            };
+        },
+        mounted: function () {
+            this.insertForm.name = user.name;
+            this.insertForm.sex = user.sex;
+            this.insertForm.email = user.email;
+            this.insertForm.phone = user.phone;
+            this.insertForm.information = user.information;
+        },
+        methods: {
+            submitForm() {
+                var _this = this;
+                this.$refs.insertForm.validate(valid => {
+                    //表单验证失败
+                    if (!valid) {
+                        return false;
+                    }
+                    _this.submitUpload()
+                    //表单验证通过
+                    $.ajax({
+                        url: "http://localhost:8080/user/updateUser",
+                        type: "POST",
+                        data: JSON.stringify(_this.insertForm),
+                        contentType: "application/json;charsetset=UTF-8",
+                        dataType: "json",
+                        xhrFields: {
+                            withCredentials: true
+                        },
+                        success: function (data) {
+                            var json = eval(data) // 获取后端返回的json数据
+                            var Code = json.code  // 获取Result的code
+                            if (Code == '1') {
+                                alert(JSON.stringify(json.data))
+                                window.location.href = '../job/getJob.html'
+                            } else {
+                                _this.$message.error(json.msg)
+                            }
+                        }, error: function () { // 服务器出错
+                            _this.$message.info("服务器繁忙，请稍后再试")
+                        }
+                    })
+                });
+
+            },
+            // 清空表单
+            clearForm() {
+                this.$refs.upload.clearFiles(); //  清空选择的文件
+                this.$refs.insertForm.resetFields(); //  清空表单
+            },
+            //  上传文件到服务器
+            submitUpload() {
+                this.$refs.upload.submit();
+            },
+            //  上传文件数提醒
+            handleExceed() {
+                this.$message.warning(`当前限制上传 1 个文件`);
+            },
+            fileChange(uploadFile, fileList) {
+                this.insertForm.file = uploadFile
+                if (fileList.length !== 0) {
+                    this.$refs.insertForm.validateField('file')
+                }
+            },
+            fileRemove(uploadFile, fileList) {
+                if (fileList.length === 0) {
+                    this.insertForm.file = null
+                    this.$refs.insertForm.validateField('file')
+                }
+            }
+        }
+    })
+</script>
+</body>
+</html>
